@@ -19,34 +19,33 @@ class GoDriveClient {
 	private $clientDrive;
 	private $clientOAuth2;
 	
-	function __construct(array $config = config('godrive'), $userEmail = '') {
+	function __construct(array $config, $userEmail = '') {
 
 		$this->config = $config;
-
 		$this->client = new Google_Client(array_get($config, 'google', ''));
 
         try {
+            $this->client->setScopes(array_get($config, 'google.scopes', []));
 
         	$this->fileToken = array_get($config, 'user.fileToken', '');
         	$this->isUnlimited = array_get($config, 'user.isUnlimited', false);
         	$this->appName = array_get($config, 'google.application_name', 'REAZON APP');
         	$this->dirInfo = array_get($config, 'user.isUnlimited', false);
-
-        	if (array_get($config, 'service.enable', false)) {
+            if (array_get($config, 'service.enable', false)) {
                 $this->auth($userEmail);
             }
 
             if(Session::has($this->tokenKey)) {
-            	$this->token = Session::get($this->tokenKey);
+                $this->token = Session::get($this->tokenKey);
             } else if($this->fileToken) {
-            	if(file_exists($this->fileToken))
+                if(file_exists($this->fileToken))
                     $this->token = json_decode(file_get_contents($this->fileToken), true);
             }
 
             if(!empty($this->token)) {
-            	$this->client->setAccessToken($this->token);
+                $this->client->setAccessToken($this->token);
             } else if(request()->has("code")) {
-            	$this->client->authenticate(request()->input("code"));
+                $this->client->authenticate(request()->input("code"));
                 $this->token = $this->client->getAccessToken();
                 $this->client->setAccessToken($this->token);
                 if($this->fileToken) {
@@ -56,7 +55,7 @@ class GoDriveClient {
                     file_put_contents($this->fileToken, json_encode($this->token));
                 }
             } else if(!empty(array_get($config, 'redirect_uri', ''))) {
-            	$this->authPopup();
+                $this->authPopup();
             }
 
             if($this->client->isAccessTokenExpired() and $this->token) {
@@ -77,20 +76,24 @@ class GoDriveClient {
                 }
             }
 
+        } catch(ServiceException $ex) {
+        	if(!empty(array_get($config, 'redirect_uri', ''))) {
+        		$this->authPopup();
+        	}
+        }
+
+        try {
             if(!Session::has($this->outOfCapacity)){
                 $this->quota = $this->getClientDrive()->about->get(array("fields" => "storageQuota"))->getStorageQuota();
                 Session::put($this->outOfCapacity, round($this->quota->getLimit()) <= round($this->quota->getUsage()));
             }
 
             if(!$this->isUnlimited && Session::get($this->outOfCapacity)) {
-            	echo 'Drive Capacity is FULL';
-            	$this->authPopup();
+                echo 'Drive Capacity is FULL';
+                $this->authPopup();
             }
-
-        } catch(ServiceException $ex) {
-        	if(!empty(array_get($config, 'redirect_uri', ''))) {
-        		$this->authPopup();
-        	}
+        } catch (\Exception $ex) {
+            
         }
 	}
 
@@ -210,7 +213,7 @@ class GoDriveClient {
     		return $this->clientDrive;
     	}
 
-        return $this->clientDrive = new \Google_Service_Drive;
+        return $this->clientDrive = new \Google_Service_Drive($this->client);
     }
 
     private function getClientOauth2() {
@@ -218,7 +221,7 @@ class GoDriveClient {
     		return $this->clientOAuth2;
     	}
 
-        return $this->clientDrive =  new \Google_Service_Oauth2;
+        return $this->clientDrive =  new \Google_Service_Oauth2($this->client);
     }
 
     protected function auth($userEmail = '') {
@@ -259,9 +262,11 @@ class GoDriveClient {
 		$script = <<< HTML
 
 <script>
+    var w = 500;
+    var h = 400;
 	var left = (screen.width/2)-(w/2);
 	var top = (screen.height/2)-(h/2);
-	var win = window.open("$authUrl", '_blank', 'width=500, height=400, top='+top+', left='+left+', toolbar=0, location=0, menubar=0, scrollbars=0, resizable=0, opyhistory=no');
+	var win = window.open("$authUrl", '_blank', 'width='+w+', height='+h+', top='+top+', left='+left+', toolbar=0, location=0, menubar=0, scrollbars=0, resizable=0, opyhistory=no');
 	win.focus();
 </script>
  
