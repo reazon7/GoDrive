@@ -24,7 +24,7 @@ class GoDriveClient {
 		$this->config = $config;
 		$this->client = new Google_Client(array_get($config, 'google', ''));
 
-        try {
+		try {
         	$this->client->setScopes(array_get($config, 'google.scopes', []));
 
         	$this->fileToken = array_get($config, 'user.fileToken', '');
