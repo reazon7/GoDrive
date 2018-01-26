@@ -1,0 +1,25 @@
+{
+    "name": "reazon/godrive",
+    "description": "Google Drive for my own convenience",
+    "type": "library",
+    "require": {
+        "google/apiclient": "^2.2"
+    },
+    "autoload": {
+        "classmap": [
+            "database"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "REAZON\\GoDrive\\": "packages/reazon/godrive/src"
+        }
+    },
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "REAZON",
+            "email": "reazon7@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev"
+}
