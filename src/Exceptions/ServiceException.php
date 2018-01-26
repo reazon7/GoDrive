@@ -3,6 +3,6 @@ namespace REAZON\GoDrive\Exceptions;
 
 use Exception;
 
-class ClassName extends Exception {
+class ServiceException extends Exception {
 	
 }
