@@ -5,6 +5,15 @@
     "require": {
         "google/apiclient": "^2.2"
     },
+    "autoload": {
+        "classmap": [
+            "database"
+        ],
+        "psr-4": {
+            "App\\": "app/",
+            "REAZON\\GoDrive\\": "src/"
+        }
+    },
     "license": "MIT",
     "authors": [
         {
