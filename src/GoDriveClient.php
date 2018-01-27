@@ -54,7 +54,7 @@ class GoDriveClient {
                     }
                     file_put_contents($this->fileToken, json_encode($this->token));
                 }
-            } else if(!empty(array_get($config, 'redirect_uri', ''))) {
+            } else if(!empty(array_get($config, 'google.redirect_uri', ''))) {
                 $this->authPopup();
             }
 
@@ -77,7 +77,7 @@ class GoDriveClient {
             }
 
         } catch(ServiceException $ex) {
-        	if(!empty(array_get($config, 'redirect_uri', ''))) {
+        	if(!empty(array_get($config, 'google.redirect_uri', ''))) {
         		$this->authPopup();
         	}
         }
