@@ -7,31 +7,31 @@ use Google_Client;
 
 class GoDriveClient {
 
-	protected $config;
-	protected $client;
-	protected $token;
-	protected $fileToken;
-	protected $isUnlimited;
-	protected $appName;
-	protected $dirInfo;
-	protected $tokenKey = "REAZON.GoDrive.Token";
-	protected $outOfCapacity = "REAZON.GoDrive.OutOfCapacity";
-	private $clientDrive;
-	private $clientOAuth2;
-	
-	function __construct(array $config, $userEmail = '') {
+    protected $config;
+    protected $client;
+    protected $token;
+    protected $fileToken;
+    protected $isUnlimited;
+    protected $appName;
+    protected $dirInfo;
+    protected $tokenKey = "REAZON.GoDrive.Token";
+    protected $outOfCapacity = "REAZON.GoDrive.OutOfCapacity";
+    private $clientDrive;
+    private $clientOAuth2;
+    
+    function __construct(array $config = null, $userEmail = '') {
 
-		$this->config = $config;
-		$this->client = new Google_Client(array_get($config, 'google', ''));
+        $this->config = isset($config) ? $config : config('godrive');
+        $this->client = new Google_Client(array_get($this->config, 'google', ''));
 
-		try {
-        	$this->client->setScopes(array_get($config, 'google.scopes', []));
+        try {
+            $this->client->setScopes(array_get($this->config, 'google.scopes', []));
 
-        	$this->fileToken = array_get($config, 'user.fileToken', '');
-        	$this->isUnlimited = array_get($config, 'user.isUnlimited', false);
-        	$this->appName = array_get($config, 'google.application_name', 'REAZON APP');
-        	$this->dirInfo = array_get($config, 'user.isUnlimited', false);
-            if (array_get($config, 'service.enable', false)) {
+            $this->fileToken = array_get($this->config, 'user.fileToken', '');
+            $this->isUnlimited = array_get($this->config, 'user.isUnlimited', false);
+            $this->appName = array_get($this->config, 'google.application_name', 'REAZON APP');
+            $this->dirInfo = array_get($this->config, 'user.isUnlimited', false);
+            if (array_get($this->config, 'service.enable', false)) {
                 $this->auth($userEmail);
             }
 
@@ -54,7 +54,7 @@ class GoDriveClient {
                     }
                     file_put_contents($this->fileToken, json_encode($this->token));
                 }
-            } else if(!empty(array_get($config, 'google.redirect_uri', ''))) {
+            } else if(!empty(array_get($this->config, 'google.redirect_uri', ''))) {
                 $this->authPopup();
             }
 
@@ -77,9 +77,9 @@ class GoDriveClient {
             }
 
         } catch(ServiceException $ex) {
-        	if(!empty(array_get($config, 'google.redirect_uri', ''))) {
-        		$this->authPopup();
-        	}
+            if(!empty(array_get($this->config, 'google.redirect_uri', ''))) {
+                $this->authPopup();
+            }
         }
 
         try {
@@ -95,9 +95,9 @@ class GoDriveClient {
         } catch (\Exception $ex) {
             
         }
-	}
+    }
 
-	public function isDirectoryExists($name, $parentId = null) {
+    public function isDirectoryExists($name, $parentId = null) {
         if(!is_null($parentId)){
             $params = [
                 'q' => "mimeType = 'application/vnd.google-apps.folder' and name = '" . $name . "' and '$parentId' in parents",
@@ -140,7 +140,7 @@ class GoDriveClient {
         $fileId = $remoteNewFile->getId();
 
         if(!empty($fileId)) {
-        	$this->getClientDrive()->permissions->create($fileId, $permission);
+            $this->getClientDrive()->permissions->create($fileId, $permission);
             return $remoteNewFile;
         }
     }
@@ -205,21 +205,21 @@ class GoDriveClient {
     }
 
     public function getUser() {
-    	return $this->getClientOauth2()->userinfo->get();
+        return $this->getClientOauth2()->userinfo->get();
     }
 
     private function getClientDrive() {
-    	if(isset($this->clientDrive)) {
-    		return $this->clientDrive;
-    	}
+        if(isset($this->clientDrive)) {
+            return $this->clientDrive;
+        }
 
         return $this->clientDrive = new \Google_Service_Drive($this->client);
     }
 
     private function getClientOauth2() {
         if(isset($this->clientOAuth2)) {
-    		return $this->clientOAuth2;
-    	}
+            return $this->clientOAuth2;
+        }
 
         return $this->clientDrive =  new \Google_Service_Oauth2($this->client);
     }
@@ -248,7 +248,7 @@ class GoDriveClient {
         return true;
     }
 
-	public function __call($method, $parameters) {
+    public function __call($method, $parameters) {
         if (method_exists($this->client, $method)) {
             return call_user_func_array([$this->client, $method], $parameters);
         }
@@ -257,23 +257,23 @@ class GoDriveClient {
     }
 
 
-	private function authPopup() {
-		$authUrl = $this->client->createAuthUrl();
-		$script = <<< HTML
+    private function authPopup() {
+        $authUrl = $this->client->createAuthUrl();
+        $script = <<< HTML
 
 <script>
     var w = 500;
     var h = 400;
-	var left = (screen.width/2)-(w/2);
-	var top = (screen.height/2)-(h/2);
-	var win = window.open("$authUrl", '_blank', 'width='+w+', height='+h+', top='+top+', left='+left+', toolbar=0, location=0, menubar=0, scrollbars=0, resizable=0, opyhistory=no');
-	win.focus();
+    var left = (screen.width/2)-(w/2);
+    var top = (screen.height/2)-(h/2);
+    var win = window.open("$authUrl", '_blank', 'width='+w+', height='+h+', top='+top+', left='+left+', toolbar=0, location=0, menubar=0, scrollbars=0, resizable=0, opyhistory=no');
+    win.focus();
 </script>
  
 HTML;
-		
-		echo $script;
+        
+        echo $script;
 
-	}
+    }
 
 }
