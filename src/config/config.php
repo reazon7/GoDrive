@@ -6,7 +6,7 @@ return [
         'application_name' => 'My Application Name', //Use your own
         'client_id'       => 'some_code_here', //Use your own
         'client_secret'   => 'some_secret_here', //Use your own
-        'redirect_uri'    => 'redirect_url_here'), //Use your own
+        'redirect_uri'    => 'redirect_url_here', //Use your own
         'scopes'          => [
             Google_Service_Drive::DRIVE,
             Google_Service_Oauth2::USERINFO_EMAIL,
