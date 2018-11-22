@@ -1,21 +1,29 @@
 {
-    "name": "reazon/godrive",
-    "description": "Google Drive for my own convenience",
-    "type": "library",
-    "require": {
-        "google/apiclient": "^2.2"
-    },
-    "autoload": {
-        "psr-4": {
-            "REAZON\\GoDrive\\": "src/"
-        }
-    },
-    "license": "MIT",
-    "authors": [
-        {
-            "name": "REAZON",
-            "email": "reazon7@gmail.com"
-        }
-    ],
-    "minimum-stability": "stable"
+	"name": "reazon/godrive",
+	"description": "Laravel Google Drive for my own convenience",
+	"type": "library",
+	"require": {
+		"google/apiclient": "^2.2"
+	},
+	"autoload": {
+		"psr-4": {
+			"REAZON\\GoDrive\\": "src/"
+		}
+	},
+	"extra": {
+		"laravel": {
+			"providers": [
+				"REAZON\\GoDrive\\GoDriveServiceProvider"
+			],
+			"aliases": {
+				"GoDrive": "REAZON\\GoDrive\\GoDriveClient"
+			}
+		}
+	},
+	"license": "MIT",
+	"authors": [{
+		"name": "REAZON",
+		"email": "reazon7@gmail.com"
+	}],
+	"minimum-stability": "stable"
 }
