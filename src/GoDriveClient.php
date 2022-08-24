@@ -1,4 +1,5 @@
 <?php
+
 namespace REAZON\GoDrive;
 
 use Illuminate\Support\Facades\Session;
@@ -21,7 +22,6 @@ class GoDriveClient
 
 	function __construct(array $config = null, $userEmail = '')
 	{
-
 		$this->config = isset($config) ? $config : config('godrive');
 		$this->client = new Google_Client(array_get($this->config, 'google', ''));
 
@@ -76,7 +76,6 @@ class GoDriveClient
 					Session::put($this->tokenKey, $this->token);
 				}
 			}
-
 		} catch (ServiceException $ex) {
 			if (!empty(array_get($this->config, 'google.redirect_uri', ''))) {
 				$this->authPopup();
@@ -94,7 +93,6 @@ class GoDriveClient
 				$this->authPopup();
 			}
 		} catch (\Exception $ex) {
-
 		}
 	}
 
@@ -163,17 +161,17 @@ class GoDriveClient
 		));
 
 		$permission = new \Google_Service_Drive_Permission();
-		switch ($allow) :
+		switch ($allow):
 			case "private":
-			$permission->setType('default');
-			$permission->setRole('owner');
-			break;
+				$permission->setType('default');
+				$permission->setRole('owner');
+				break;
 
-		default:
-			$permission->setAllowFileDiscovery(true);
-			$permission->setType('anyone');
-			$permission->setRole('reader');
-			break;
+			default:
+				$permission->setAllowFileDiscovery(true);
+				$permission->setType('anyone');
+				$permission->setRole('reader');
+				break;
 		endswitch;
 
 		$this->getClientDrive()->permissions->create($createdFile->getId(), $permission);
@@ -268,7 +266,6 @@ class GoDriveClient
 		throw new \BadMethodCallException(sprintf('Method [%s] does not exist.', $method));
 	}
 
-
 	private function authPopup()
 	{
 		$authUrl = $this->client->createAuthUrl();
@@ -286,7 +283,5 @@ class GoDriveClient
 HTML;
 
 		echo $script;
-
 	}
-
 }
