@@ -2,9 +2,14 @@
 
 namespace REAZON\GoDrive;
 
-use Illuminate\Support\Facades\Session;
-use REAZON\GoDrive\Exceptions\ServiceException;
-use Google_Client;
+use Exception;
+use Illuminate\Support\Arr;
+use Google\Client;
+use Google\Service\Drive;
+use Google\Service\Oauth2;
+use BadMethodCallException;
+use Google\Service\Drive\DriveFile;
+use Google\Service\Drive\Permission;
 
 class GoDriveClient
 {
@@ -20,80 +25,98 @@ class GoDriveClient
 	private $clientDrive;
 	private $clientOAuth2;
 
-	function __construct(array $config = null, $userEmail = '')
+	function __construct(array $config = null, $userEmail = '', $useSession = true)
 	{
 		$this->config = isset($config) ? $config : config('godrive');
-		$this->client = new Google_Client(array_get($this->config, 'google', ''));
+		if (empty($this->config)) {
+			echo 'Google Drive Config NOT FOUND!!';
+			exit;
+		}
+
+		$this->client = new Client(Arr::get($this->config, 'google', ''));
 
 		try {
-			$this->client->setScopes(array_get($this->config, 'google.scopes', []));
+			$this->client->setScopes(Arr::get($this->config, 'google.scopes', []));
 
-			$this->fileToken = array_get($this->config, 'user.fileToken', '');
-			$this->isUnlimited = array_get($this->config, 'user.isUnlimited', false);
-			$this->appName = array_get($this->config, 'google.application_name', 'REAZON APP');
-			$this->dirInfo = array_get($this->config, 'user.isUnlimited', false);
-			if (array_get($this->config, 'service.enable', false)) {
+			$this->fileToken = Arr::get($this->config, 'user.fileToken', '');
+			$this->isUnlimited = Arr::get($this->config, 'user.isUnlimited', false);
+			$this->appName = Arr::get($this->config, 'google.application_name', 'GoDRIVE APP');
+			$this->dirInfo = Arr::get($this->config, 'user.isUnlimited', false);
+			if (Arr::get($this->config, 'service.enable', false)) {
 				$this->auth($userEmail);
 			}
 
-			if (Session::has($this->tokenKey)) {
-				$this->token = Session::get($this->tokenKey);
-			} else if ($this->fileToken) {
-				if (file_exists($this->fileToken))
-					$this->token = json_decode(file_get_contents($this->fileToken), true);
-			}
-
-			if (!empty($this->token)) {
-				$this->client->setAccessToken($this->token);
-			} else if (request()->has("code")) {
-				$this->client->authenticate(request()->input("code"));
+			// New Token by Code
+			if (request()->has("code")) {
+				$this->client->fetchAccessTokenWithAuthCode(request()->input("code"));
 				$this->token = $this->client->getAccessToken();
-				$this->client->setAccessToken($this->token);
-				if ($this->fileToken) {
-					if (!file_exists(dirname($this->fileToken))) {
-						mkdir(dirname($this->fileToken), 777, true);
-					}
-					file_put_contents($this->fileToken, json_encode($this->token));
+				$this->saveTokenToFile();
+			}
+			// Token Already in Session
+			else if ($useSession && session()->has($this->tokenKey)) {
+				$this->token = session($this->tokenKey);
+			}
+			// Get Token from File
+			else if (!empty($this->fileToken) && file_exists($this->fileToken)) {
+				$this->token = json_decode(file_get_contents($this->fileToken), true);
+				$this->saveTokenSession();
+			}
+			// Require Authentication
+			else {
+				$this->authPopup();
+			}
+
+			// Set Token to Google Client
+			$this->client->setAccessToken($this->token);
+
+			// Check Token is Expired, Request New Token
+			if ($this->client->isAccessTokenExpired()) {
+				$this->client->refreshToken($this->token["refresh_token"]);
+
+				// Check Token Still Expired
+				if ($this->client->isAccessTokenExpired()) {
+					echo "Token Expired! Refresh Token not Work!";
+					$this->authPopup();
 				}
-			} else if (!empty(array_get($this->config, 'google.redirect_uri', ''))) {
-				$this->authPopup();
-			}
-
-			if ($this->client->isAccessTokenExpired() and $this->token) {
-				$tokens = (is_array($this->token)) ? $this->token : json_decode($this->token);
-				$refreshToken = $tokens["refresh_token"];
-				$this->client->refreshToken($refreshToken);
-				$this->token = $this->client->getAccessToken();
-			}
-
-			if (!$this->client->isAccessTokenExpired()) {
-				if (!empty($this->fileToken)) {
-					if (!file_exists(dirname($this->fileToken))) {
-						mkdir(dirname($this->fileToken), 777, true);
-					}
-					file_put_contents($this->fileToken, json_encode($this->token));
-				} else {
-					Session::put($this->tokenKey, $this->token);
+				// Save Token
+				else {
+					$this->token = $this->client->getAccessToken();
+					$this->saveTokenSession();
+					$this->saveTokenToFile();
 				}
 			}
-		} catch (ServiceException $ex) {
-			if (!empty(array_get($this->config, 'google.redirect_uri', ''))) {
-				$this->authPopup();
-			}
-		}
 
-		try {
-			if (!Session::has($this->outOfCapacity)) {
-				$this->quota = $this->getClientDrive()->about->get(array("fields" => "storageQuota"))->getStorageQuota();
-				Session::put($this->outOfCapacity, round($this->quota->getLimit()) <= round($this->quota->getUsage()));
-			}
+			// Check Drive Capacity
+			if (!$this->isUnlimited) {
+				if (!session()->has($this->outOfCapacity)) {
+					$this->quota = $this->getClientDrive()->about->get(array("fields" => "storageQuota"))->getStorageQuota();
+					session()->put($this->outOfCapacity, round($this->quota->getLimit()) <= round($this->quota->getUsage()));
+				}
 
-			if (!$this->isUnlimited && Session::get($this->outOfCapacity)) {
-				echo 'Drive Capacity is FULL';
-				$this->authPopup();
+				if (!empty(session($this->outOfCapacity))) {
+					echo 'Drive Capacity is FULL';
+					$this->authPopup();
+				}
 			}
-		} catch (\Exception $ex) {
+		} catch (Exception $ex) {
+			echo "Error!!";
+			exit;
 		}
+	}
+
+	private function saveTokenToFile()
+	{
+		if (!empty($this->fileToken)) {
+			if (!file_exists(dirname($this->fileToken))) {
+				mkdir(dirname($this->fileToken), 777, true);
+			}
+			file_put_contents($this->fileToken, json_encode($this->token));
+		}
+	}
+
+	private function saveTokenSession()
+	{
+		session()->put($this->tokenKey, $this->token);
 	}
 
 	public function isDirectoryExists($name, $parentId = null)
@@ -124,7 +147,7 @@ class GoDriveClient
 
 	public function uploadFile($path, $title, $parentId = null, $allow = "public")
 	{
-		$newFile = new \Google_Service_Drive_DriveFile();
+		$newFile = new DriveFile();
 		if ($parentId != null) {
 			$newFile->setParents(array($parentId));
 		}
@@ -148,7 +171,7 @@ class GoDriveClient
 
 	public function newDirectory($folderName, $parentId = null, $allow = "private")
 	{
-		$file = new \Google_Service_Drive_DriveFile();
+		$file = new DriveFile();
 		$file->setName($folderName);
 		$file->setMimeType('application/vnd.google-apps.folder');
 
@@ -160,7 +183,7 @@ class GoDriveClient
 			'mimeType' => 'application/vnd.google-apps.folder'
 		));
 
-		$permission = new \Google_Service_Drive_Permission();
+		$permission = new Permission();
 		switch ($allow):
 			case "private":
 				$permission->setType('default');
@@ -186,7 +209,7 @@ class GoDriveClient
 
 	public function getFilePermissions($allow = "private")
 	{
-		$permission = new \Google_Service_Drive_Permission();
+		$permission = new Permission();
 		switch ($allow) {
 			case "private":
 				$permission->setType('user');
@@ -219,7 +242,7 @@ class GoDriveClient
 			return $this->clientDrive;
 		}
 
-		return $this->clientDrive = new \Google_Service_Drive($this->client);
+		return $this->clientDrive = new Drive($this->client);
 	}
 
 	private function getClientOauth2()
@@ -228,7 +251,7 @@ class GoDriveClient
 			return $this->clientOAuth2;
 		}
 
-		return $this->clientDrive = new \Google_Service_Oauth2($this->client);
+		return $this->clientDrive = new Oauth2($this->client);
 	}
 
 	protected function auth($userEmail = '')
@@ -242,7 +265,7 @@ class GoDriveClient
 
 	protected function useAssertCredentials($userEmail = '')
 	{
-		$serviceJsonUrl = array_get($this->config, 'service.file', '');
+		$serviceJsonUrl = Arr::get($this->config, 'service.file', '');
 
 		if (empty($serviceJsonUrl)) {
 			return false;
@@ -263,25 +286,22 @@ class GoDriveClient
 			return call_user_func_array([$this->client, $method], $parameters);
 		}
 
-		throw new \BadMethodCallException(sprintf('Method [%s] does not exist.', $method));
+		throw new BadMethodCallException(sprintf('Method [%s] does not exist.', $method));
 	}
 
 	private function authPopup()
 	{
 		$authUrl = $this->client->createAuthUrl();
-		$script = <<< HTML
-
-<script>
-    var w = 500;
-    var h = 400;
-    var left = (screen.width/2)-(w/2);
-    var top = (screen.height/2)-(h/2);
-    var win = window.open("$authUrl", '_blank', 'width='+w+', height='+h+', top='+top+', left='+left+', toolbar=0, location=0, menubar=0, scrollbars=0, resizable=0, opyhistory=no');
-    win.focus();
-</script>
- 
-HTML;
-
-		echo $script;
+		echo <<< HTML
+			<script>
+				var w = 500;
+				var h = 400;
+				var left = (screen.width/2)-(w/2);
+				var top = (screen.height/2)-(h/2);
+				var win = window.open("$authUrl", '_blank', 'width='+w+', height='+h+', top='+top+', left='+left+', toolbar=0, location=0, menubar=0, scrollbars=0, resizable=0, opyhistory=no');
+				win.focus();
+			</script>
+			HTML;
+		exit;
 	}
 }
