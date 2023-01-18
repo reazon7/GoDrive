@@ -1,6 +1,6 @@
 <?php
 
-namespace REAZON\PWdocx\Facades;
+namespace REAZON\GoDrive\Facades;
 
 use Illuminate\Support\Facades\Facade as BaseFacade;
 
