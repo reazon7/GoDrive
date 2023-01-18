@@ -89,8 +89,8 @@ class GoDriveClient
 			// Check Drive Capacity
 			if (!$this->isUnlimited) {
 				if (!session()->has($this->outOfCapacity)) {
-					$this->quota = $this->getClientDrive()->about->get(array("fields" => "storageQuota"))->getStorageQuota();
-					session()->put($this->outOfCapacity, round($this->quota->getLimit()) <= round($this->quota->getUsage()));
+					$quota = $this->getClientDrive()->about->get(array("fields" => "storageQuota"))->getStorageQuota();
+					session()->put($this->outOfCapacity, round($quota->getLimit()) <= round($quota->getUsage()));
 				}
 
 				if (!empty(session($this->outOfCapacity))) {
