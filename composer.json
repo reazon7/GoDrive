@@ -16,7 +16,7 @@
 				"REAZON\\GoDrive\\GoDriveServiceProvider"
 			],
 			"aliases": {
-				"GoDrive": "REAZON\\GoDrive\\Facades\\GoDrive"
+				"GoDrive": "REAZON\\GoDrive\\GoDriveClient"
 			}
 		}
 	},
