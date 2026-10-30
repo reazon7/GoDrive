@@ -18,6 +18,7 @@ return [
 			Google_Service_Drive::DRIVE_SCRIPTS
 		],
 		'access_type' => 'offline',
+		'prompt' => 'consent',
 		'approval_prompt' => 'force',
 		'developer_key' => env('GOOGLE_DEVELOPER_KEY', ''),
 	],
